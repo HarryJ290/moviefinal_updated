@@ -6,13 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:http_parser/http_parser.dart';
-import 'package:animated_splash_screen/animated_splash_screen.dart'; // ✅ Added
-
-const String apiKey = '98a778cd48257c0eed3939d0bbdd1145';
-const String baseUrl = 'https://api.themoviedb.org/3/genre/movie/list';
-const String moviesByGenreUrl = 'https://api.themoviedb.org/3/discover/movie';
-const String searchUrl = 'https://api.themoviedb.org/3/search/movie';
-const String imageUrl = 'https://image.tmdb.org/t/p/w500';
 
 late List<CameraDescription> cameras;
 
@@ -32,32 +25,202 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: AnimatedSplashScreen(
-        splash: Icons.movie,
-        duration: 3000,
-        splashTransition: SplashTransition.fadeTransition,
-        backgroundColor: Colors.blue,
-        nextScreen: const PlaceholderHomeScreen(), // Replace with your home screen
-      ),
+      home: const AnimatedSplashScreen(),
     );
   }
 }
 
-// ✅ Temporary home screen after splash (you can replace this)
-class PlaceholderHomeScreen extends StatelessWidget {
-  const PlaceholderHomeScreen({super.key});
+class AnimatedSplashScreen extends StatefulWidget {
+  const AnimatedSplashScreen({super.key});
+
+  @override
+  AnimatedSplashScreenState createState() => AnimatedSplashScreenState();
+}
+
+class AnimatedSplashScreenState extends State<AnimatedSplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Center(
-        child: Text("Welcome to Movie App!", style: TextStyle(fontSize: 24)),
+        child: TweenAnimationBuilder(
+          tween: Tween<double>(begin: 0, end: 1),
+          duration: const Duration(seconds: 2),
+          builder: (context, double value, child) {
+            return Transform.scale(
+              scale: value,
+              child: Opacity(opacity: value, child: child),
+            );
+          },
+          child: Text(
+            'Welcome to our app ✨',
+            style: GoogleFonts.lobster(
+              fontSize: 36,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-// ... Your LoadingPage and MovieListPage code goes below unchanged
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'assets/movie_background.jpg',
+            fit: BoxFit.cover,
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color.fromRGBO(0, 0, 0, 0.2),
+                  Color.fromRGBO(0, 0, 0, 0.6),
+                ],
+              ),
+            ),
+          ),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'MOVIE RECOMMENDATION',
+                  style: GoogleFonts.lobster(
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                  backgroundColor: Colors.redAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => CameraScreen(camera: cameras.first)),
+                  );
+                },
+                child: Text(
+                  'Get Recommendations',
+                  style: GoogleFonts.openSans(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CameraScreen extends StatefulWidget {
+  const CameraScreen({super.key, required this.camera});
+
+  final CameraDescription camera;
+
+  @override
+  CameraScreenState createState() => CameraScreenState();
+}
+
+class CameraScreenState extends State<CameraScreen> {
+  late CameraController _controller;
+  late Future<void> _initializeControllerFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = CameraController(widget.camera, ResolutionPreset.high);
+    _initializeControllerFuture = _controller.initialize();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _captureAndSendPhoto() async {
+    try {
+      await _initializeControllerFuture;
+      XFile file = await _controller.takePicture();
+
+      Uint8List imageBytes = await file.readAsBytes();
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LoadingPage(imageBytes: imageBytes),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error capturing image: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Capture Your Emotion')),
+      body: Column(
+        children: [
+          Expanded(
+            child: FutureBuilder<void>(
+              future: _initializeControllerFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.done) {
+                  return CameraPreview(_controller);
+                } else {
+                  return Center(child: CircularProgressIndicator());
+                }
+              },
+            ),
+          ),
+          FloatingActionButton(
+            onPressed: _captureAndSendPhoto,
+            child: Icon(Icons.camera),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class LoadingPage extends StatefulWidget {
   final Uint8List imageBytes;
@@ -70,14 +233,6 @@ class LoadingPage extends StatefulWidget {
 
 class _LoadingPageState extends State<LoadingPage> {
   String? emotion;
-  final Map<String, List<String>> emotionGenres = {
-    "Angry": ["Action", "Crime", "War", "Thriller"],
-    "Fear": ["Horror", "Mystery"],
-    "Happy": ["Comedy", "Music", "Fantasy"],
-    "Neutral": ["Drama", "Documentary", "Family", "History", "TV Movie", "Western"],
-    "Sad": ["Romance", "Drama"],
-    "Surprise": ["Science Fiction", "Animation", "Adventure"],
-  };
 
   @override
   void initState() {
@@ -110,15 +265,6 @@ class _LoadingPageState extends State<LoadingPage> {
     });
   }
 
-  Future<List<dynamic>> fetchMoviesByGenre(String genre) async {
-    final response = await http.get(Uri.parse('$moviesByGenreUrl?api_key=$apiKey&with_genres=$genre'));
-    if (response.statusCode == 200) {
-      return json.decode(response.body)['results'];
-    } else {
-      throw Exception('Failed to load movies');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,87 +281,17 @@ class _LoadingPageState extends State<LoadingPage> {
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: EdgeInsets.all(20),
-                    margin: EdgeInsets.symmetric(horizontal: 30),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 10,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          "You Are Feeling : $emotion",
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          "We recommend you ${emotionGenres[emotion]!.join(", ")} movies.",
-                          style: TextStyle(fontSize: 18),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
+                  Text(
+                    "Predicted Emotion: $emotion",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 30),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text("Previous"),
-                      ),
-                      ElevatedButton(
-                        onPressed: () async {
-                          List<dynamic> movies = await fetchMoviesByGenre(emotionGenres[emotion]!.first);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MovieListPage(movies: movies),
-                            ),
-                          );
-                        },
-                        child: Text("Get Movies"),
-                      ),
-                    ],
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text("Go Back"),
                   ),
                 ],
               ),
-      ),
-    );
-  }
-}
-
-class MovieListPage extends StatelessWidget {
-  final List<dynamic> movies;
-
-  const MovieListPage({super.key, required this.movies});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("Recommended Movies")),
-      body: ListView.builder(
-        itemCount: movies.length,
-        itemBuilder: (context, index) {
-          var movie = movies[index];
-          return ListTile(
-            leading: Image.network('$imageUrl${movie['poster_path']}', width: 50, height: 75, fit: BoxFit.cover),
-            title: Text(movie['title']),
-            subtitle: Text(movie['overview']),
-          );
-        },
       ),
     );
   }

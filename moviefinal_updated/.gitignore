@@ -1,0 +1,30 @@
+# Flutter
+build/
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+*.env
+*.log
+
+# Model Files
+*.h5
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Others
+*.ipynb_checkpoints

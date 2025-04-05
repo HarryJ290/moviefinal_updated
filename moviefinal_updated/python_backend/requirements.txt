@@ -1,0 +1,6 @@
+flask
+cloudinary
+tensorflow
+numpy
+opencv-python
+requests
